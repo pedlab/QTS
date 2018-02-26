@@ -1,4 +1,4 @@
-from indicators import *
+from .indicators import *
 
 # Conventions
 #   Signals passed to the trading functions
