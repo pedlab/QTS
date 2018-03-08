@@ -101,7 +101,7 @@ class strategy(object):
     # relative to how much balance is available. E.g, if 100 shares are on hand and a sell order is given, and a sale_volume of 0.5 is used, 50 will be sold
     # Signals [1 for buy, -1 for sell and 0 for hold
     # can_short determines whether or
-    def execute_simulation(signals, data, stop_loss_percentage, take_profit_percentage, buy_percentage, sell_percentage, start_balance=100000):
+    def execute_simulation(self,signals, data, stop_loss_percentage, take_profit_percentage, buy_percentage, sell_percentage, start_balance=100000):
 
         # Initialization
         balance = start_balance
@@ -122,13 +122,13 @@ class strategy(object):
                 '''If held volume == 0  is similar to asking if a short position is taken'''
                 if held_volume == 0:
                     if (data[x] >= acquisition_price * (1+stop_loss_percentage)) or (data[x] <= acquisition_price * (1+take_profit_percentage)):
-                        exit_short_position()
+                        self.exit_short_position()
                 else:
                     if (data[x] >= acquisition_price * (1+take_profit_percentage)) or (data[x] <= acquisition_price * (1+stop_loss_percentage)):
-                        exit_long_position()
+                        self.exit_long_position()
 
             if signals[x] == 1:
-                new_data = enter_long_position(data[x], balance, )
+                new_data = self.enter_long_position(data[x], balance, )
 
     def enter_long_position(price, buy_volume, balance = 0):
             new_balance = balance - (price * buy_volume)

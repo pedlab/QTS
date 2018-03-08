@@ -85,5 +85,3 @@ def parse_csv(file_path):
             items[5].append(float(row[5]))
             items[6].append(float(row[6]))
     return items
-
-print(split_bars_absolute(parse_csv("CSV.csv")[1],3))
