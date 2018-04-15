@@ -28,7 +28,13 @@ class MainWindow:
         fileMenu.add_command(label="Open CSV", command=self.on_upload_csv_button_click)
         fileMenu.add_command(label="Refresh", command=self.display_stock_data)
         fileMenu.add_command(label="Close", command=quit)
+
+        tradingMenu = tk.Menu(menubar)
+        tradingMenu.add_command(label="Open Manual Trading Simulator",command=self.open_manual_trading)
+
         menubar.add_cascade(label="File", menu=fileMenu)
+        menubar.add_cascade(label="Trading", menu=tradingMenu)
+
 
         '''Grid'''
         self.frame.grid(sticky='NW')
@@ -154,6 +160,12 @@ class MainWindow:
     def open_trading_strategies(self):
         self.trading_strategies_window = tk.Toplevel(self.master)
         self.trading_strategies_app = TradingStrategies(self.trading_strategies_window)
+    
+    def  open_manual_trading(self):
+        self.manual_trading_window = tk.Toplevel(self.master)
+        self.manual_trading_app = ManualTrading(self.manual_trading_window)
+        self.manual_trading_app.insert_data(self.trading_data)
+
     def pass_file(self):
         return tk.filedialog.askopenfile(mode="r")
     def on_upload_csv_button_click(self):
@@ -201,15 +213,62 @@ class TradingStrategies:
         self.indicators_menus.append(tk.OptionMenu(self.frame,self.indicators_menus_items[self.row_count-1],'Aroon','Vortex','MACD','RSI'))
         self.indicators_menus[self.row_count - 1].grid(row = self.row_count, column = 2)
 
-class ManualTrading(object):
+class ManualTrading:
     """docstring for ManualTrading"""
-    def __init__(self, master, data):
-        super(ManualTrading, self).__init__()
+    def __init__(self, master):
         self.master = master
         self.main_frame = self.master
-        self.component_init()
-    def component_init()
-        None
+        self.initialize_widgets()
+        self.log = ""
+    def initialize_widgets(self):
+        
+
+        """ Plots """
+        self.figure = Figure(figsize=(6,4))
+        ''' Graph Creation and Grid Arrangement using Gridspec'''
+        self.chart_grids = gridspec.GridSpec(2,2)
+        
+        self.stock_data_graph = self.figure.add_subplot(self.chart_grids[0,:])
+        self.stock_data_graph.set_xlabel('Time Periods')
+        self.stock_data_graph.set_ylabel('Price')
+
+        
+        self.profit_graph = self.figure.add_subplot(self.chart_grids[1,1])
+        self.profit_graph.set_xlabel('Time Period')
+        self.profit_graph.set_ylabel('Total Equity')
+        
+        self.win_loss_graph = self.figure.add_subplot(self.chart_grids[1,0])
+        self.win_loss_graph.set_xlabel('Time Period')
+        self.win_loss_graph.set_ylabel('Profit/Loss')
+
+        ''' Integraph spacing'''
+        self.figure.subplots_adjust(top=0.92, bottom=0.18, left=0.15, right=0.95, hspace=0.45,
+                    wspace=0.55)
+        ''' Canvas attachment '''
+        self.canvas = FigureCanvasTkAgg(self.figure,master=self.main_frame)
+        self.canvas.show()
+        self.plot_widget = self.canvas.get_tk_widget()
+        self.plot_widget.grid(row=2,column = 1,columnspan = 3, sticky ='NW')
+        self.plot_widget.grid_rowconfigure(0,weight=1)
+        self.plot_widget.grid_columnconfigure(0,weight=1)
+
+        """ Buttons """
+        self.buy_button = tk.Button(self.main_frame, text = "Buy")
+        self.sell_button = tk.Button(self.main_frame, text = "Sell")
+        self.hold_button = tk.Button(self.main_frame, text = "Hold")
+
+        """ Entries """
+        self.buy_amount_entry = tk.Entry(self.main_frame)
+
+        """ Labels """
+        self.total_equity_label = tk.Label(self.main_frame, text = "Total Equity:")
+        self.shares_held = tk.Label(self.main_frame, text = "shares Held:")
+        self.profits = tk.Label(self.main_frame, text = "Profits Made")
+        self.losses = tk.Label(self.main_frame, text = "Losses Incurred")
+
+    def insert_data(self,data):
+        self.data = data
+
 
 def main():
     root = tk.Tk()
@@ -218,3 +277,12 @@ def main():
     root.mainloop()
 if __name__ == '__main__':
     main()
+
+"""
+Todo
+1. MDI
+2. Manual Trading
+3. Chartscroll
+4. Migrate functions to toolbar
+5. Data saving
+"""
