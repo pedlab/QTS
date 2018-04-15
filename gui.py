@@ -14,13 +14,15 @@ Definitions
 class MainWindow:
     def __init__(self, master):
         self.master = master
-        self.frame = tk.Frame(master)
+        self.master.grid_rowconfigure(0,weight=1)
+        self.master.grid_columnconfigure(0,weight=1)
+        self.frame = tk.Frame(master,bg='cyan',width = 100,height=100)
         self.initialize_widgets()
         self.master_strategy = pyquant.strategy()
     '''Initialize all widgets here'''
     def initialize_widgets(self):
         ''' Menu '''
-        menubar = tk.Menu(self.master)
+        menubar = tk.Menu(self.frame)
         self.master.config(menu=menubar)
         fileMenu = tk.Menu(menubar)
         fileMenu.add_command(label="Open CSV", command=self.on_upload_csv_button_click)
@@ -28,18 +30,30 @@ class MainWindow:
         fileMenu.add_command(label="Close", command=quit)
         menubar.add_cascade(label="File", menu=fileMenu)
 
+        '''Grid'''
+        self.frame.grid(sticky='NW')
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+
+
         ''' Labels '''
-        self.file_name = tk.Label(self.master,text = '--- No Data Loaded ---')
-        self.file_name.grid(row = 1,column = 1)
-        self.trading_data_column_label = tk.Label(self.master,text='Data Used')
+        self.file_name = tk.Label(self.frame,text = '--- No Data Loaded ---')
+        self.file_name.grid(row = 1,column = 1, sticky='NE')
+        self.file_name.grid_columnconfigure(0, weight=1)
+        self.file_name.grid_rowconfigure(0, weight=1)
+        self.trading_data_column_label = tk.Label(self.frame,text='Data Used')
         self.trading_data_column_label.grid(row=4, column=1)
-        self.split_count_label = tk.Label(self.master,text = 'Number of Epochs')
+        self.trading_data_column_label.grid_columnconfigure(0, weight=1)
+        self.trading_data_column_label.grid_rowconfigure(0, weight=1)
+        self.split_count_label = tk.Label(self.frame,text = 'Number of Epochs')
         self.split_count_label.grid(row = 4, column = 2)
+        self.split_count_label.grid_columnconfigure(0, weight=1)
+        self.split_count_label.grid_rowconfigure(0, weight=1)
 
         ''' Option Menu '''
-        self.data_source = StringVar(self.master)
+        self.data_source = StringVar(self.frame)
         self.data_source.set('OHLC Average')
-        self.stock_data_source = tk.OptionMenu(self.master, self.data_source, 'OHLC Average', 'Opening','High','Low','Close','Adjusted Close','Volume')
+        self.stock_data_source = tk.OptionMenu(self.frame, self.data_source, 'OHLC Average', 'Opening','High','Low','Close','Adjusted Close','Volume')
         self.stock_data_source_options = {
             'OHLC Average' : 0,
             'Opening': 1,
@@ -52,18 +66,18 @@ class MainWindow:
         self.stock_data_source.grid(row = 5, column = 1)
 
         ''' Entries '''
-        self.split_count = tk.Entry(self.master)
+        self.split_count = tk.Entry(self.frame)
         self.split_count.grid(row = 5, column = 2)
 
 
         ''' Buttons '''
-        self.open_new_trade_strategy_window_button = tk.Button(self.master,text='Open Trading Rules',command=self.open_trading_strategies)
-        self.open_new_trade_strategy_window_button.grid(row=3,column=3,sticky ='news')
-        self.next_epoch_button = tk.Button(self.master,text = 'Next epoch >>', command = lambda: self.display_stock_data(self.current_epoch + 1) if (self.current_epoch + 1)<len(self.trading_data) else print('End of '))
-        self.next_epoch_button.grid(row=3,column =2,sticky ='news')
-        self.next_epoch_button = tk.Button(self.master,text = '<< Previous epoch', command = lambda: self.display_stock_data(self.current_epoch - 1) if (self.current_epoch -1) > -1 else print('End'))
-        self.next_epoch_button.grid(row=3,column =1,sticky ='news')
-        self.refresh_chart = tk.Button(self.master,text = 'refresh_charts', command = self.refresh)
+        self.open_new_trade_strategy_window_button = tk.Button(self.frame,text='Open Trading Rules',command=self.open_trading_strategies)
+        self.open_new_trade_strategy_window_button.grid(row=3,column=3,sticky ='NEWS')
+        self.next_epoch_button = tk.Button(self.frame,text = 'Next epoch >>', command = lambda: self.display_stock_data(epoch = (self.current_epoch + 1), epoch_count = int(self.split_count.get())) if (self.current_epoch + 1)<len(self.trading_data) else print('End of '))
+        self.next_epoch_button.grid(row=3,column =2,sticky ='NEWS')
+        self.next_epoch_button = tk.Button(self.frame,text = '<< Previous epoch', command = lambda: self.display_stock_data(epoch = (self.current_epoch - 1), epoch_count = int(self.split_count.get())) if (self.current_epoch -1) > -1 else print('End'))
+        self.next_epoch_button.grid(row=3,column =1,sticky ='NEWS')
+        self.refresh_chart = tk.Button(self.frame,text = 'refresh_charts', command = self.refresh)
         self.refresh_chart.grid(row = 5, column = 3)
 
         ### Demo
@@ -71,23 +85,41 @@ class MainWindow:
         #self.demo_button.grid(row = 5, column = 3)
         ###
         ''' Plot '''
-        self.figure = Figure(figsize=(5,5))
+        self.figure = Figure(figsize=(13,5))
+        ''' Graph Creation and Grid Arrangement using Gridspec'''
         self.chart_grids = gridspec.GridSpec(2,2)
+        
         self.stock_data_graph = self.figure.add_subplot(self.chart_grids[0,:])
+        self.stock_data_graph.set_xlabel('Time Periods')
+        self.stock_data_graph.set_ylabel('Price')
+        
         self.profit_graph = self.figure.add_subplot(self.chart_grids[1,1])
+        self.profit_graph.set_xlabel('Time Period')
+        self.profit_graph.set_ylabel('Total Equity')
+        
         self.win_loss_graph = self.figure.add_subplot(self.chart_grids[1,0])
-        self.canvas = FigureCanvasTkAgg(self.figure,master=self.master)
+        self.win_loss_graph.set_xlabel('Time Period')
+        self.win_loss_graph.set_ylabel('Profit/Loss')
+
+        ''' Integraph spacing'''
+        self.figure.subplots_adjust(top=0.92, bottom=0.18, left=0.15, right=0.95, hspace=0.45,
+                    wspace=0.55)
+        ''' Canvas attachment '''
+        self.canvas = FigureCanvasTkAgg(self.figure,master=self.frame)
         self.canvas.show()
         self.plot_widget = self.canvas.get_tk_widget()
-        self.plot_widget.grid(row=2,column = 1,columnspan = 3, sticky ='news')
-        '''Grid'''
-        self.frame.grid()
+        self.plot_widget.grid(row=2,column = 1,columnspan = 3, sticky ='NW')
+        self.plot_widget.grid_rowconfigure(0,weight=1)
+        self.plot_widget.grid_columnconfigure(0,weight=1)
+
 
     def segment_data(self,column,count):
+        print('Pre-split data \n'+ str(self.trading_data[column]))
         return pyquant.split_bars_fraction(self.trading_data[column],count)
 
     def refresh(self):
-        self.display_stock_data(epoch_count = int(self.split_count.get()))
+        self.display_stock_data(epoch = 0, epoch_count = int(self.split_count.get()))
+        self.current_epoch = 0    
 
     def save_simulation_results(self):
         dict = {}
@@ -102,13 +134,15 @@ class MainWindow:
         self.display_stock_data(self.current_epoch)
         print('Changed Epoch to '+self.current_epoch)
 
-    def display_stock_data(self, epoch = 0,epoch_count = 2):
+    def display_stock_data(self, epoch = 0,epoch_count = 1):
         self.stock_data_graph.clear()
         self.current_epoch = epoch
         data_to_plot = self.segment_data(self.stock_data_source_options[self.data_source.get()],epoch_count)
-        print(data_to_plot)
+        print('Data to be plot \n'+ str(data_to_plot))
+
         self.stock_data_graph.plot([ x for x in range(0,len(data_to_plot[epoch]))],data_to_plot[epoch])
         self.figure.canvas.draw()
+        
         print('Redrew Stock Data')
     '''Opens a trading strategies window to create strategies to pass to the main window'''
 
@@ -127,13 +161,9 @@ class MainWindow:
         self.trading_data = pyquant.parse_csv(csv.name)
         print('Data Loaded')
         print(pyquant.parse_csv(csv.name))
-        try:
-            self.master_strategy.add_stock_data(pyquant.parse_csv(csv.name))
-            self.display_stock_data()
-            self.file_name = tk.Label(text = csv.name)
-            self.file_name.grid(row = 1, column = 1)
-        except Exception:
-            None
+        self.master_strategy.add_stock_data(pyquant.parse_csv(csv.name))
+        self.display_stock_data()
+        self.file_name['text']=csv.name
 
 class TradingStrategies:
     def __init__(self, master):
@@ -170,8 +200,20 @@ class TradingStrategies:
         self.indicators_menus_items[self.row_count - 1].set('Select Indicator')
         self.indicators_menus.append(tk.OptionMenu(self.frame,self.indicators_menus_items[self.row_count-1],'Aroon','Vortex','MACD','RSI'))
         self.indicators_menus[self.row_count - 1].grid(row = self.row_count, column = 2)
+
+class ManualTrading(object):
+    """docstring for ManualTrading"""
+    def __init__(self, master, data):
+        super(ManualTrading, self).__init__()
+        self.master = master
+        self.main_frame = self.master
+        self.component_init()
+    def component_init()
+        None
+
 def main():
     root = tk.Tk()
+    root.attributes('-fullscreen',False)
     app = MainWindow(root)
     root.mainloop()
 if __name__ == '__main__':
