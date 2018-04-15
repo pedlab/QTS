@@ -16,7 +16,7 @@ class MainWindow:
         self.master = master
         self.master.grid_rowconfigure(0,weight=1)
         self.master.grid_columnconfigure(0,weight=1)
-        self.frame = tk.Frame(master,bg='cyan',width = 100,height=100)
+        self.frame = tk.Frame(master,width = 100,height=100)
         self.initialize_widgets()
         self.master_strategy = pyquant.strategy()
     '''Initialize all widgets here'''
