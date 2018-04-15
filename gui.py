@@ -2,6 +2,7 @@ import tkinter as tk
 import pyquant
 import matplotlib
 from tkinter import StringVar
+import tkinter.messagebox
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
@@ -256,7 +257,8 @@ class ManualTrading:
         self.buy_button = tk.Button(self.main_frame, text = "Buy")
         self.sell_button = tk.Button(self.main_frame, text = "Sell")
         self.hold_button = tk.Button(self.main_frame, text = "Hold")
-
+        self.exit_button = tk.Button(self.main_frame, text = "Close",command=self.before_close)
+        self.exit_button.grid(row = 1, column = 1)
         """ Entries """
         self.buy_amount_entry = tk.Entry(self.main_frame)
 
@@ -268,6 +270,12 @@ class ManualTrading:
 
     def insert_data(self,data):
         self.data = data
+
+    def before_close(self):
+        if tkinter.messagebox.askyesno("Save Data?","Save") == 'yes':
+            quit()
+        else:
+            None
 
 
 def main():
