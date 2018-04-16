@@ -33,27 +33,30 @@ def CAR(data):
 def trim_data(signals,data):
     return data[(len(data)-len(signals)):]
 
-def split_bars_fraction(list,epoch_count, allow_uneven_end = True):
+def split_bars_fraction(data,epoch_count = 1, allow_uneven_end = True):
     result = []
-    i = int(len(list)/epoch_count)
-    x = i
-    y = 0
-    while x + i < len(list):
-        result.append(list[y:x])
-        x = x + i
-        y = y + i
+    step = int(len(data)/epoch_count)
+    x,y = step,0
+    main_range = step * epoch_count
+    print(step)
+    print(main_range)
+    while x <= main_range:
+        result.append(data[y:x])
+        x = x + step
+        y = y + step
     if allow_uneven_end:
-        result.append(list[x:len(list)])
+        result.append(data[main_range:len(data)])
     return result
 
-def split_bars_absolute(list, time_length, allow_uneven_end = True):
+
+def split_bars_absolute(data, time_length, allow_uneven_end = True):
     x = 0
     result = []
-    while x + time_length < len(list):
-        result.append(list[x:x+time_length])
+    while x + time_length < len(data):
+        result.append(data[x:x+time_length])
         x = x + time_length
     if allow_uneven_end:
-        result.append(list[x:len(list)])
+        result.append(data[x:len(data)])
     return result
 
 
@@ -84,4 +87,5 @@ def parse_csv(file_path):
             items[4].append(float(row[4]))
             items[5].append(float(row[5]))
             items[6].append(float(row[6]))
+        print(items[1])
     return items
