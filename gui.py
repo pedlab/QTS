@@ -2,16 +2,44 @@ import tkinter as tk
 import pyquant
 import matplotlib
 from tkinter import StringVar
+from tkinter import simpledialog
 import tkinter.messagebox
-matplotlib.use('TkAgg')
+import tkinter.filedialog       
+matplotlib.use('TkAgg')     
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib import gridspec
+
 ''' 
 Definitions
     Epochs are how data is divided into segments here; first 15 bars, third 1/4, etc.
+
+    Logs are kept by both the autotrader and the manual trader. Each entry is in the following format
+        [
+            Bar Number
+            Action
+            Price
+            Volume
+            Starting Balance
+            Ending Balance
+        ]
+
+|  ||
+|| |_
+
 '''
+
+'''
+To do
+1. MDI
+2. Manual Trading
+3. Chartscroll
+4. Migrate functions to toolbar
+5. Data saving
+6. Configure data source changing
+'''
+
 class MainWindow:
     def __init__(self, master):
         self.master = master
@@ -20,6 +48,8 @@ class MainWindow:
         self.frame = tk.Frame(master,width = 100,height=100)
         self.initialize_widgets()
         self.master_strategy = pyquant.strategy()
+        self.trading_data = None
+        self.file_name = None
     '''Initialize all widgets here'''
     def initialize_widgets(self):
         ''' Menu '''
@@ -36,18 +66,10 @@ class MainWindow:
         menubar.add_cascade(label="File", menu=fileMenu)
         menubar.add_cascade(label="Trading", menu=tradingMenu)
 
-
         '''Grid'''
         self.frame.grid(sticky='NW')
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
-
-
-        '''Grid'''
-        self.frame.grid(sticky='NW')
-        self.frame.grid_rowconfigure(0, weight=1)
-        self.frame.grid_columnconfigure(0, weight=1)
-
 
         ''' Labels '''
         self.file_name = tk.Label(self.frame,text = '--- No Data Loaded ---')
@@ -127,7 +149,6 @@ class MainWindow:
 
 
     def segment_data(self,column,count):
-        print('Pre-split data \n'+ str(self.trading_data[column]))
         return pyquant.split_bars_fraction(self.trading_data[column],count)
 
     def refresh(self):
@@ -151,13 +172,9 @@ class MainWindow:
         self.stock_data_graph.clear()
         self.current_epoch = epoch
         data_to_plot = self.segment_data(self.stock_data_source_options[self.data_source.get()],epoch_count)
-        print('Data to be plot \n'+ str(data_to_plot))
-
         self.stock_data_graph.plot([ x for x in range(0,len(data_to_plot[epoch]))],data_to_plot[epoch])
         self.figure.canvas.draw()
-        
-        print('Redrew Stock Data')
-    '''Opens a trading strategies window to create strategies to pass to the main window'''
+        '''Opens a trading strategies window to create strategies to pass to the main window'''
 
     def display_equity(self,epoch = 0):
         self.profit_graph.plot([ x for x in range(0,len(self.trading_data[epoch]))],self.trading_data[epoch])
@@ -169,20 +186,23 @@ class MainWindow:
         self.trading_strategies_app = TradingStrategies(self.trading_strategies_window)
     
     def  open_manual_trading(self):
-        self.manual_trading_window = tk.Toplevel(self.master)
-        self.manual_trading_app = ManualTrading(self.manual_trading_window)
-        self.manual_trading_app.insert_data(self.trading_data)
+        if self.trading_data != None or self.file_name != None:
+            self.manual_trading_window = tk.Toplevel(self.master)
+            self.manual_trading_app = ManualTrading(self.manual_trading_window,self.trading_data[1],self.file_name)
+        else:
+            tk.messagebox.showinfo("Error","Please Upload Trading Data")
+
 
     def pass_file(self):
         return tk.filedialog.askopenfile(mode="r")
-    def on_upload_csv_button_click(self):
+    def on_upload_csv_button_click(self): 
         csv = self.pass_file()
         self.trading_data = pyquant.parse_csv(csv.name)
-        print('Data Loaded')
-        print(pyquant.parse_csv(csv.name))
+        self.file_name = csv.name
+        print(str(csv.name) + " Loaded")
         self.master_strategy.add_stock_data(pyquant.parse_csv(csv.name))
         self.display_stock_data()
-        self.file_name['text']=csv.name
+        self.file_name['text']= str(csv.name)
 
 class TradingStrategies:
     def __init__(self, master):
@@ -222,24 +242,32 @@ class TradingStrategies:
 
 class ManualTrading:
     """docstring for ManualTrading"""
-    def __init__(self, master):
+    def __init__(self, master,data,file_name):
         self.master = master
         self.main_frame = self.master
+        self.time_pointer = 0
+        self.held_amount = 0
+        self.win_count = 0
+        self.balance = 0
+        self.loss_count = 0
+        self.insert_data(data,file_name)
         self.initialize_widgets()
-        self.log = ""
+        self.set_initial_balance()
+        self.log = []
+
     def initialize_widgets(self):
-        
+        self.master.grid_rowconfigure(0, weight = 1)
+        self.master.grid_columnconfigure(0, weight = 1)
 
         """ Plots """
         self.figure = Figure(figsize=(6,4))
-        ''' Graph Creation and Grid Arrangement using Gridspec'''
         self.chart_grids = gridspec.GridSpec(2,2)
+        ''' Subplot Creation '''
         
         self.stock_data_graph = self.figure.add_subplot(self.chart_grids[0,:])
         self.stock_data_graph.set_xlabel('Time Periods')
         self.stock_data_graph.set_ylabel('Price')
 
-        
         self.profit_graph = self.figure.add_subplot(self.chart_grids[1,1])
         self.profit_graph.set_xlabel('Time Period')
         self.profit_graph.set_ylabel('Total Equity')
@@ -255,35 +283,87 @@ class ManualTrading:
         self.canvas = FigureCanvasTkAgg(self.figure,master=self.main_frame)
         self.canvas.show()
         self.plot_widget = self.canvas.get_tk_widget()
-        self.plot_widget.grid(row=2,column = 1,columnspan = 3, sticky ='NW')
+        self.plot_widget.grid(row=1,column = 1,columnspan = 3, sticky ='NW')
         self.plot_widget.grid_rowconfigure(0,weight=1)
         self.plot_widget.grid_columnconfigure(0,weight=1)
 
+
         """ Buttons """
-        self.buy_button = tk.Button(self.main_frame, text = "Buy")
-        self.sell_button = tk.Button(self.main_frame, text = "Sell")
+        self.buy_button = tk.Button(self.main_frame, text = "Buy", command = self.buy)
+        self.buy_button.grid(row = 2, column = 1)
+        self.sell_button = tk.Button(self.main_frame, text = "Sell", command = self.sell)
+        self.sell_button.grid(row = 2, column = 2)
         self.hold_button = tk.Button(self.main_frame, text = "Hold")
+        self.hold_button.grid(row = 2, column = 3)
         self.exit_button = tk.Button(self.main_frame, text = "Close",command=self.before_close)
-        self.exit_button.grid(row = 1, column = 1)
+        self.exit_button.grid(row = 4, column = 3)
+        
         """ Entries """
-        self.buy_amount_entry = tk.Entry(self.main_frame)
-
+        self.buy_or_sell_amount_entry = tk.Entry(self.main_frame)
+        self.buy_or_sell_amount_entry.grid(row = 4, column = 1)
+        
         """ Labels """
-        self.total_equity_label = tk.Label(self.main_frame, text = "Total Equity:")
-        self.shares_held = tk.Label(self.main_frame, text = "shares Held:")
-        self.profits = tk.Label(self.main_frame, text = "Profits Made")
-        self.losses = tk.Label(self.main_frame, text = "Losses Incurred")
+        self.symbol_name_label = tk.Label(self.main_frame, text = self.file_name)
+        self.symbol_name_label.grid(row = 0, column = 1)
+        self.current_price_label = tk.Label(self.main_frame, text = "Current Price "+ str(self.data[self.time_pointer]))
+        self.current_price_label.grid(row = 0, column = 2)
+        self.current_bar_label = tk.Label(self.main_frame, text = "Current Bar "+str(self.time_pointer))
+        self.current_bar_label.grid(row = 0, column = 3)
+        self.total_equity_label = tk.Label(self.main_frame, text = "Total Equity: $"+ str(self.balance+self.data[self.time_pointer*self.held_amount]))
+        self.total_equity_label.grid(row = 3, column = 1)
+        self.shares_held_label = tk.Label(self.main_frame, text = "shares Held: "+str(self.held_amount*self.data[self.time_pointer]+self.balance))
+        self.shares_held_label.grid(row = 3, column = 2)
+        self.wins_losses_ratio_label = tk.Label(self.main_frame, text = "Profit / Loss Ratio")
+        self.wins_losses_ratio_label.grid(row = 3, column = 3)
 
-    def insert_data(self,data):
+    def insert_data(self,data,file_name):
         self.data = data
+        self.file_name = file_name
+
+    def set_initial_balance(self):
+        accepted = False
+        value = None
+        while accepted == False:
+            value = tkinter.simpledialog.askinteger("Initialization","Enter the initial balance:")
+            if value < self.data[0]:
+                tkinter.messagebox.showinfo("Error","Starting balance cannot be lower than the first bar. Please enter a value higher than: " + str(self.data[0]))
+            else:
+                accepted = True
+        self.balance = value
+        self.total_equity_label['text'] = str(self.balance+self.data[self.time_pointer]*self.held_amount)
 
     def before_close(self):
-        if tkinter.messagebox.askyesno("Save Data?","Save") == 'yes':
-            quit()
+        if tkinter.messagebox.askyesno("Save Data?","Save?") == 'yes':
+            self.master.destroy()
         else:
-            None
+            self.save_logs()
+            self.master.destroy()
 
+    def buy(self):
+        if (int(buy_or_sell_amount_entry.get()) * self.data[time_pointer]) > self.balance:
+            tkinter.messagebox.showinfo("Error","Insufficient balance.")
+        elif buy_or_sell_amount_entry.get() == None:
+            tk.messagebox.showinfo("Error","Input a volume")
+        else:
+            new_balance = (self.balance,self.balance - int(buy_or_sell_amount_entry.get()) * self.data[time_pointer])
+            self.log.append([self.time_pointer,"Buy",int(buy_or_sell_amount_entry.get()),self.data[self.time_pointer], new_balance])
+            self.balance = new_balance
+            self.held_amount = self.held_amount + int(buy_or_sell_amount_entry.get())
+            self.time_pointer = self.time_pointer + 1
 
+    def sell(self):
+        if int(buy_or_sell_amount_entry.get())  > self.held_amount:
+            tkinter.messagebox.showinfo("Error","Insufficient shares.")
+        elif buy_or_sell_amount_entry.get() == None:
+            tk.messagebox.showinfo("Error","Input a volume")
+        else:
+            new_balance = self.balance + int(buy_or_sell_amount_entry.get()) * self.data[time_pointer]
+            self.log.append([self.time_pointer, "Sell",int(buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance])
+            self.balance = new_balance
+            self.held_amount = self.held_amount - int(buy_or_sell_amount_entry.get())
+            self.time_pointer = self.time_pointer + 1
+    def save_logs(self):
+        None
 def main():
     root = tk.Tk()
     root.attributes('-fullscreen',False)
@@ -291,12 +371,3 @@ def main():
     root.mainloop()
 if __name__ == '__main__':
     main()
-
-"""
-Todo
-1. MDI
-2. Manual Trading
-3. Chartscroll
-4. Migrate functions to toolbar
-5. Data saving
-"""
