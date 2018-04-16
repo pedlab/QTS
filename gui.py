@@ -43,6 +43,12 @@ class MainWindow:
         self.frame.grid_columnconfigure(0, weight=1)
 
 
+        '''Grid'''
+        self.frame.grid(sticky='NW')
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+
+
         ''' Labels '''
         self.file_name = tk.Label(self.frame,text = '--- No Data Loaded ---')
         self.file_name.grid(row = 1,column = 1, sticky='NE')
