@@ -23,6 +23,7 @@ Definitions
             Volume
             Starting Balance
             Ending Balance
+            Total Equity
         ]
 
 |  ||
@@ -32,12 +33,13 @@ Definitions
 
 '''
 To do
-1. MDI
+1. MDI - both
 2. Manual Trading
-3. Chartscroll
-4. Migrate functions to toolbar
-5. Data saving
-6. Configure data source changing
+3. Chartscroll - both
+4. Migrate functions to toolbar - both
+5. Data saving - both
+6. Configure data source changing - main
+7. Update fields when change made manual trading
 '''
 
 class MainWindow:
@@ -192,9 +194,9 @@ class MainWindow:
         else:
             tk.messagebox.showinfo("Error","Please Upload Trading Data")
 
-
     def pass_file(self):
         return tk.filedialog.askopenfile(mode="r")
+
     def on_upload_csv_button_click(self): 
         csv = self.pass_file()
         self.trading_data = pyquant.parse_csv(csv.name)
@@ -202,7 +204,7 @@ class MainWindow:
         print(str(csv.name) + " Loaded")
         self.master_strategy.add_stock_data(pyquant.parse_csv(csv.name))
         self.display_stock_data()
-        self.file_name['text']= str(csv.name)
+        # self.file_name['text']= str(csv.name)
 
 class TradingStrategies:
     def __init__(self, master):
@@ -268,9 +270,9 @@ class ManualTrading:
         self.stock_data_graph.set_xlabel('Time Periods')
         self.stock_data_graph.set_ylabel('Price')
 
-        self.profit_graph = self.figure.add_subplot(self.chart_grids[1,1])
-        self.profit_graph.set_xlabel('Time Period')
-        self.profit_graph.set_ylabel('Total Equity')
+        self.equity_graph = self.figure.add_subplot(self.chart_grids[1,1])
+        self.equity_graph.set_xlabel('Time Period')
+        self.equity_graph.set_ylabel('Total Equity')
         
         self.win_loss_graph = self.figure.add_subplot(self.chart_grids[1,0])
         self.win_loss_graph.set_xlabel('Time Period')
@@ -340,28 +342,41 @@ class ManualTrading:
             self.master.destroy()
 
     def buy(self):
-        if (int(buy_or_sell_amount_entry.get()) * self.data[time_pointer]) > self.balance:
+        if (int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer]) > self.balance:
             tkinter.messagebox.showinfo("Error","Insufficient balance.")
-        elif buy_or_sell_amount_entry.get() == None:
+        elif self.buy_or_sell_amount_entry.get() == None:
             tk.messagebox.showinfo("Error","Input a volume")
         else:
-            new_balance = (self.balance,self.balance - int(buy_or_sell_amount_entry.get()) * self.data[time_pointer])
-            self.log.append([self.time_pointer,"Buy",int(buy_or_sell_amount_entry.get()),self.data[self.time_pointer], new_balance])
+            new_balance = (self.balance,self.balance - int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer])
+            self.log.append([self.time_pointer,"Buy",int(self.buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance, self.balance+self.held_amount * self.data[self.time_pointer]])
             self.balance = new_balance
-            self.held_amount = self.held_amount + int(buy_or_sell_amount_entry.get())
+            self.held_amount = self.held_amount + int(self.buy_or_sell_amount_entry.get())
             self.time_pointer = self.time_pointer + 1
+        self.refresh_charts()
 
     def sell(self):
-        if int(buy_or_sell_amount_entry.get())  > self.held_amount:
+        if int(self.buy_or_sell_amount_entry.get())  > self.held_amount:
             tkinter.messagebox.showinfo("Error","Insufficient shares.")
-        elif buy_or_sell_amount_entry.get() == None:
+        elif self.buy_or_sell_amount_entry.get() == None:
             tk.messagebox.showinfo("Error","Input a volume")
         else:
-            new_balance = self.balance + int(buy_or_sell_amount_entry.get()) * self.data[time_pointer]
-            self.log.append([self.time_pointer, "Sell",int(buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance])
+            new_balance = self.balance + int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer]
+            self.log.append([self.time_pointer, "Sell",int(self.buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance, self.balance+self.held_amount * self.data[self.time_pointer]])
             self.balance = new_balance
-            self.held_amount = self.held_amount - int(buy_or_sell_amount_entry.get())
+            self.held_amount = self.held_amount - int(self.buy_or_sell_amount_entry.get())
             self.time_pointer = self.time_pointer + 1
+        self.refresh_charts()
+
+
+    def refresh_charts(self):
+        self.stock_data_graph.clear()
+        self.win_loss_graph.clear()
+        self.equity_graph.clear()
+
+        self.stock_data_graph.plot([ x for x in range(0,self.time_pointer)],self.data[:self.time_pointer])
+
+        self.figure.canvas.draw()
+
     def save_logs(self):
         None
 def main():
