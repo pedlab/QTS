@@ -1,5 +1,7 @@
 import tkinter as tk
 import pyquant
+import csv
+from datetime import datetime
 import matplotlib
 from tkinter import StringVar
 from tkinter import simpledialog
@@ -24,6 +26,8 @@ Definitions
             Starting Balance
             Ending Balance
             Total Equity
+            Win Count
+            Loss Count
         ]
 
 |  ||
@@ -252,14 +256,23 @@ class ManualTrading:
         self.win_count = 0
         self.balance = 0
         self.loss_count = 0
+        self.entry_price = 0
+        self.log = []
         self.insert_data(data,file_name)
         self.initialize_widgets()
         self.set_initial_balance()
-        self.log = []
 
     def initialize_widgets(self):
         self.master.grid_rowconfigure(0, weight = 1)
         self.master.grid_columnconfigure(0, weight = 1)
+
+        menubar = tk.Menu(self.main_frame)
+        self.master.config(menu=menubar)
+        fileMenu = tk.Menu(menubar)
+        fileMenu.add_command(label="Save Logs as CSV", command=self.csv_export)
+        fileMenu.add_command(label="Close", command=quit)
+        
+        menubar.add_cascade(label="File", menu=fileMenu)
 
         """ Plots """
         self.figure = Figure(figsize=(6,4))
@@ -299,7 +312,7 @@ class ManualTrading:
         self.hold_button.grid(row = 2, column = 3)
         self.exit_button = tk.Button(self.main_frame, text = "Close",command=self.before_close)
         self.exit_button.grid(row = 4, column = 3)
-        
+
         """ Entries """
         self.buy_or_sell_amount_entry = tk.Entry(self.main_frame)
         self.buy_or_sell_amount_entry.grid(row = 4, column = 1)
@@ -317,6 +330,8 @@ class ManualTrading:
         self.shares_held_label.grid(row = 3, column = 2)
         self.wins_losses_ratio_label = tk.Label(self.main_frame, text = "Profit / Loss Ratio")
         self.wins_losses_ratio_label.grid(row = 3, column = 3)
+        self.balance_label = tk.Label(self.main_frame, text = "Current Balance: "+str(self.balance))
+        self.balance_label.grid(row=5,column=1)
 
     def insert_data(self,data,file_name):
         self.data = data
@@ -333,52 +348,125 @@ class ManualTrading:
                 accepted = True
         self.balance = value
         self.total_equity_label['text'] = str(self.balance+self.data[self.time_pointer]*self.held_amount)
-
+        self.update_labels()
     def before_close(self):
         if tkinter.messagebox.askyesno("Save Data?","Save?") == 'yes':
             self.master.destroy()
         else:
-            self.save_logs()
+            self.csv_export()
             self.master.destroy()
 
     def buy(self):
-        if (int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer]) > self.balance:
-            tkinter.messagebox.showinfo("Error","Insufficient balance.")
-        elif self.buy_or_sell_amount_entry.get() == None:
-            tk.messagebox.showinfo("Error","Input a volume")
+        if self.time_pointer >= len(self.data):
+            tkinter.messagebox.showinfo("End of Data")
         else:
-            new_balance = (self.balance,self.balance - int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer])
-            self.log.append([self.time_pointer,"Buy",int(self.buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance, self.balance+self.held_amount * self.data[self.time_pointer]])
+            requested_amount = int(self.buy_or_sell_amount_entry.get())
+            current_price = self.data[self.time_pointer]
+            trade_type = 'LONG ENTRY'
+
+            if self.held_amount > 0:
+                new_balance = self.balance - requested_amount * current_price
+                self.entry_price = ((self.held_amount * self.entry_price) + (requested_amount * current_price))/(self.held_amount + requested_amount)
+
+            elif self.held_amount < 0:
+                trade_type = 'SHORT EXIT'
+
+                if current_price < self.entry_price:
+                    self.win_count = self.win_count + 1
+                elif current_price > self.entry_price:
+                    self.loss_count = self.loss_count + 1
+
+                new_balance = self.balance + (self.entry_price - current_price) * requested_amount
+
+            else:
+                new_balance = self.balance - requested_amount * current_price
+                self.entry_price = current_price
+            
+            self.log.append([self.time_pointer,trade_type, requested_amount,current_price, self.entry_price, self.balance, new_balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
             self.balance = new_balance
-            self.held_amount = self.held_amount + int(self.buy_or_sell_amount_entry.get())
+            self.held_amount = self.held_amount + requested_amount
             self.time_pointer = self.time_pointer + 1
-        self.refresh_charts()
+            
+            self.update_labels()
+            self.refresh_charts()
 
     def sell(self):
-        if int(self.buy_or_sell_amount_entry.get())  > self.held_amount:
-            tkinter.messagebox.showinfo("Error","Insufficient shares.")
-        elif self.buy_or_sell_amount_entry.get() == None:
-            tk.messagebox.showinfo("Error","Input a volume")
+        if self.time_pointer >= len(self.data):
+            tkinter.messagebox.showinfo("End of Data")
         else:
-            new_balance = self.balance + int(self.buy_or_sell_amount_entry.get()) * self.data[self.time_pointer]
-            self.log.append([self.time_pointer, "Sell",int(self.buy_or_sell_amount_entry.get()),self.data[self.time_pointer], self.balance, new_balance, self.balance+self.held_amount * self.data[self.time_pointer]])
-            self.balance = new_balance
-            self.held_amount = self.held_amount - int(self.buy_or_sell_amount_entry.get())
+            requested_amount = int(self.buy_or_sell_amount_entry.get())
+            current_price = self.data[self.time_pointer]
+            trade_type = 'SHORT ENTER'
+            new_balance = self.balance
+
+            if self.held_amount > 0:
+                trade_type = 'LONG EXIT'
+                new_balance = self.balance + requested_amount * current_price
+                self.balance = new_balance
+            elif self.held_amount < 0:
+
+                if current_price < self.entry_price:
+                    self.win_count = self.win_count + 1
+                elif current_price > self.entry_price:
+                    self.loss_count = self.loss_count + 1
+
+                self.entry_price = ((-self.held_amount) * self.entry_price + requested_amount * current_price)/(self.held_amount + requested_amount)
+            else:
+                self.entry_price = current_price
+
+            self.log.append([self.time_pointer, trade_type, requested_amount,current_price, self.entry_price, self.balance, new_balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
+            self.held_amount = self.held_amount - requested_amount
             self.time_pointer = self.time_pointer + 1
+
+            self.update_labels()
+            self.refresh_charts()
+
+    def hold(self):
+        self.log.append([self.time_pointer, 'HOLD', 0 ,self.data[self.time_pointer], self.entry_price, self.balance, self.balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
+        self.time_pointer = self.time_pointer + 1
+        self.update_labels()
         self.refresh_charts()
 
+    def csv_export(self):
+        with open('Manual-Trade-Log.csv','w') as fp:
+            writer = csv.writer(fp, delimiter=',') 
+            writer.writerows(self.log)
+
+    def test_next(self):
+        self.time_pointer = self.time_pointer + 1
+        self.refresh_charts()
+
+    def update_labels(self):
+        self.current_price_label.configure(text = "Current Price "+ str(self.data[self.time_pointer]))
+        self.current_bar_label.configure(text = "Current Bar "+str(self.time_pointer))
+        self.balance_label.configure(text="Current Balance: "+str(self.balance))
+        if self.held_amount > 0:
+            self.total_equity_label.configure(text = "Total Equity: $"+ str(self.balance + self.data[self.time_pointer]*self.held_amount))
+        else:
+            self.total_equity_label.configure(text = "Total Equity: $"+ str(self.balance))
+
+        self.shares_held_label.configure(text = "Units Held: "+str(self.held_amount))
+        if self.loss_count > 0:
+            self.wins_losses_ratio_label.configure(text = "Profit / Loss Ratio: "+str(self.win_count/self.loss_count))
+        else:
+            self.wins_losses_ratio_label.configure(text = "Profit / Loss Ratio: Inf")
+
+        map(lambda x: print(str(x)), self.log)
 
     def refresh_charts(self):
         self.stock_data_graph.clear()
         self.win_loss_graph.clear()
         self.equity_graph.clear()
 
-        self.stock_data_graph.plot([ x for x in range(0,self.time_pointer)],self.data[:self.time_pointer])
+        x_range = [ x for x in range(0,self.time_pointer)]
+        success_array = [ self.log[x][7] for x in range(0,self.time_pointer)]
+        fail_array = [ self.log[x][8] for x in range(0,self.time_pointer)]
 
+        self.stock_data_graph.plot(x_range,self.data[:self.time_pointer])
+        self.win_loss_graph.plot(x_range, success_array, label = 'Win')
+        self.win_loss_graph.plot(x_range,fail_array, label = 'Loss')
         self.figure.canvas.draw()
 
-    def save_logs(self):
-        None
 def main():
     root = tk.Tk()
     root.attributes('-fullscreen',False)
