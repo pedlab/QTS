@@ -8,6 +8,17 @@ from .utilities import *
 class strategy(object):
     def __init__(self):
         self.signals = None
+        # Iteration Counter
+        self.time_pointer = 0
+        # How much cash the user has on hand
+        self.balance = 0
+        # How much of the current cash on hand to be used
+        self.trade_volume = 0
+        # How many stocks are on hand
+        self.held_amount = 0 
+        self.stop_loss_percentage = 0
+        self.stop_loss_percentage
+        self.log = []
     def add_stock_data(self,data):
         self.data = data
     def add_indicator_aroon(self, time_length, threshold_a, threshold_b):
@@ -101,47 +112,78 @@ class strategy(object):
     # relative to how much balance is available. E.g, if 100 shares are on hand and a sell order is given, and a sale_volume of 0.5 is used, 50 will be sold
     # Signals [1 for buy, -1 for sell and 0 for hold
     # can_short determines whether or
-    def execute_simulation(self,signals, data, stop_loss_percentage, take_profit_percentage, buy_percentage, sell_percentage, start_balance=100000):
-
-        # Initialization
-        balance = start_balance
-        held_volume = 0
-        acquisition_price = 0
-        successes = 0
-        fails = 0
-        holding = False
-        is_long = False
-
-        # Main Trading Loop
-        for x in (0, signals):
-            buy_volume = (balance / buy_percentage) * buy_percentage
-            sell_volume = held_volume * sell_percentage
-
-            # Stop Loss / Take Profit Section
-            if holding == True:
-                '''If held volume == 0  is similar to asking if a short position is taken'''
-                if held_volume == 0:
-                    if (data[x] >= acquisition_price * (1+stop_loss_percentage)) or (data[x] <= acquisition_price * (1+take_profit_percentage)):
-                        self.exit_short_position()
-                else:
-                    if (data[x] >= acquisition_price * (1+take_profit_percentage)) or (data[x] <= acquisition_price * (1+stop_loss_percentage)):
-                        self.exit_long_position()
-
+    def execute_trades(self):
+#        current_price = self.data[self.time_pointer]
+        for x in range(0,len(self.data)):
+#            if ((current_price < self.entry_price) * (1 - self.stop_loss_percentage) and (self.holding > 0)) or ((current_price > self.entry_price * (1 + self.stop_loss_percentage)) and (self.holding < 0)):
             if signals[x] == 1:
-                new_data = self.enter_long_position(data[x], balance, )
+                self.buy()
+            elif signals[x] == 0:
+                self.sell()
+            else:
+                self.hold()
 
-    def enter_long_position(price, buy_volume, balance = 0):
-            new_balance = balance - (price * buy_volume)
-            new_volume = buy_volume
-            acquisition_price = price
-            return new_balance, new_volume, acquisition_price, True
 
-    def enter_short_position(price, buy_volume, balance = 0):
-        return None
+    def buy(self):
+        if self.time_pointer >= len(self.data):
+            print('EOF')
+        else:
+            current_price = self.data[self.time_pointer]
+            requested_amount = current_price/(self.trade_volume * self.balance)
+            trade_type = 'LONG ENTRY'
 
-    def exit_short_position(price, aquisition_price, held_volume, is_long_trade, percentage = 1.00):
-        return None
+            if self.held_amount > 0:
+                new_balance = self.balance - requested_amount * current_price
+                self.entry_price = ((self.held_amount * self.entry_price) + (requested_amount * current_price))/(self.held_amount + requested_amount)
 
-    def exit_long_position(price, aquisition_price, held_volume, is_long_trade, percentage = 1.00):
-        return None
+            elif self.held_amount < 0:
+                trade_type = 'SHORT EXIT'
 
+                if current_price < self.entry_price:
+                    self.win_count = self.win_count + 1
+                elif current_price > self.entry_price:
+                    self.loss_count = self.loss_count + 1
+
+                new_balance = self.balance + (self.entry_price - current_price) * requested_amount
+
+            else:
+                new_balance = self.balance - requested_amount * current_price
+                self.entry_price = current_price
+            
+            self.log.append([self.time_pointer,trade_type, requested_amount,current_price, self.entry_price, self.balance, new_balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
+            self.balance = new_balance
+            self.held_amount = self.held_amount + requested_amount
+            self.time_pointer = self.time_pointer + 1
+
+
+    def sell(self):
+        if self.time_pointer >= len(self.data):
+            print('EOF')
+        else:
+            requested_amount = current_price/(self.trade_volume * self.balance)
+            current_price = self.data[self.time_pointer]
+            trade_type = 'SHORT ENTER'
+            new_balance = self.balance
+
+            if self.held_amount > 0:
+                trade_type = 'LONG EXIT'
+                new_balance = self.balance + requested_amount * current_price
+                self.balance = new_balance
+
+                if current_price < self.entry_price:
+                    self.win_count = self.win_count + 1
+                elif current_price > self.entry_price:
+                    self.loss_count = self.loss_count + 1
+
+            elif self.held_amount < 0:
+                self.entry_price = ((-self.held_amount) * self.entry_price + requested_amount * current_price)/(-self.held_amount + requested_amount)
+            else:
+                self.entry_price = current_price
+
+            self.log.append([self.time_pointer, trade_type, requested_amount,current_price, self.entry_price, self.balance, new_balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
+            self.held_amount = self.held_amount - requested_amount
+            self.time_pointer = self.time_pointer + 1
+
+    def hold(self):
+        self.log.append([self.time_pointer, 'HOLD', 0 ,self.data[self.time_pointer], self.entry_price, self.balance, self.balance, self.balance + self.held_amount * current_price, self.win_count, self.loss_count])
+        self.time_pointer = self.time_pointer + 1

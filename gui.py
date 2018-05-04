@@ -41,9 +41,7 @@ To do
 2. Manual Trading
 3. Chartscroll - both
 4. Migrate functions to toolbar - both
-5. Data saving - both
-6. Configure data source changing - main
-7. Update fields when change made manual trading
+5. Configure data source changing - main
 '''
 
 class MainWindow:
@@ -161,9 +159,23 @@ class MainWindow:
         self.display_stock_data(epoch = 0, epoch_count = int(self.split_count.get()))
         self.current_epoch = 0    
 
-    def save_simulation_results(self):
-        dict = {}
-        dict['trading data'] = self.trading_data
+    def csv_export(self):
+        self.log = self.master_strategy.log
+        with open('Auto-Trade-Log.csv','w') as fp:
+            writer = csv.writer(fp, delimiter=',')
+            headers = [[
+            "Period",
+            "Action",
+            "Volume",
+            "Current Price",
+            "Entry Price",
+            "Starting Balance",
+            "Ending Balance",
+            "Total Equity",
+            "Win Count",
+            "Loss Count"]]
+            writer.writerows(headers) 
+            writer.writerows(self.log)
 
     def on_column_selection_change(self, event):
         None
@@ -403,14 +415,15 @@ class ManualTrading:
                 trade_type = 'LONG EXIT'
                 new_balance = self.balance + requested_amount * current_price
                 self.balance = new_balance
-            elif self.held_amount < 0:
 
                 if current_price < self.entry_price:
                     self.win_count = self.win_count + 1
                 elif current_price > self.entry_price:
                     self.loss_count = self.loss_count + 1
 
-                self.entry_price = ((-self.held_amount) * self.entry_price + requested_amount * current_price)/(self.held_amount + requested_amount)
+            elif self.held_amount < 0:
+
+                self.entry_price = ((-self.held_amount) * self.entry_price + requested_amount * current_price)/(-self.held_amount + requested_amount)
             else:
                 self.entry_price = current_price
 
@@ -429,7 +442,19 @@ class ManualTrading:
 
     def csv_export(self):
         with open('Manual-Trade-Log.csv','w') as fp:
-            writer = csv.writer(fp, delimiter=',') 
+            writer = csv.writer(fp, delimiter=',')
+            headers = [[
+            "Period",
+            "Action",
+            "Volume",
+            "Current Price",
+            "Entry Price",
+            "Starting Balance",
+            "Ending Balance",
+            "Total Equity",
+            "Win Count",
+            "Loss Count"]]
+            writer.writerows(headers) 
             writer.writerows(self.log)
 
     def test_next(self):
