@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import pyquant
 import csv
 from datetime import datetime
@@ -37,39 +38,51 @@ Definitions
 
 '''
 To do
-1. MDI - both
-2. Manual Trading
+2. Rebind Functions to overarching class
 3. Chartscroll - both
 4. Migrate functions to toolbar - both
 5. Configure data source changing - main
 '''
 
-class MainWindow:
+class Main:
+    def __init__(self, master):
+        self.master = master
+
+        ''' Menu '''
+        menubar = tk.Menu(self.master)
+        self.master.config(menu=menubar)
+        fileMenu = tk.Menu(menubar)
+        fileMenu.add_command(label="Open CSV")
+        fileMenu.add_command(label="Refresh")
+        fileMenu.add_command(label="Close", command=quit)
+        tradingMenu = tk.Menu(menubar)
+        tradingMenu.add_command(label="Open Manual Trading Simulator")
+        menubar.add_cascade(label="File", menu=fileMenu)
+        menubar.add_cascade(label="Trading", menu=tradingMenu)
+
+        ''' Notebook '''
+        self.notebook = ttk.Notebook(master)
+        Frame1 = ttk.Frame(self.notebook)
+        MainWindow(Frame1)
+        Frame2 = ttk.Frame(self.notebook)
+        MainWindow(Frame2)
+        self.notebook.add(Frame1, text = "Tab 1")
+        self.notebook.add(Frame2, text = "Tab 1")
+        self.notebook.pack()
+
+
+class MainWindow(ttk.Frame):
     def __init__(self, master):
         self.master = master
         self.master.grid_rowconfigure(0,weight=1)
         self.master.grid_columnconfigure(0,weight=1)
-        self.frame = tk.Frame(master,width = 100,height=100)
+        self.frame = ttk.Frame(master,width = 100,height=100)
         self.initialize_widgets()
         self.master_strategy = pyquant.strategy()
         self.trading_data = None
         self.file_name = None
     '''Initialize all widgets here'''
     def initialize_widgets(self):
-        ''' Menu '''
-        menubar = tk.Menu(self.frame)
-        self.master.config(menu=menubar)
-        fileMenu = tk.Menu(menubar)
-        fileMenu.add_command(label="Open CSV", command=self.on_upload_csv_button_click)
-        fileMenu.add_command(label="Refresh", command=self.display_stock_data)
-        fileMenu.add_command(label="Close", command=quit)
-
-        tradingMenu = tk.Menu(menubar)
-        tradingMenu.add_command(label="Open Manual Trading Simulator",command=self.open_manual_trading)
-
-        menubar.add_cascade(label="File", menu=fileMenu)
-        menubar.add_cascade(label="Trading", menu=tradingMenu)
-
         '''Grid'''
         self.frame.grid(sticky='NW')
         self.frame.grid_rowconfigure(0, weight=1)
@@ -494,8 +507,7 @@ class ManualTrading:
 
 def main():
     root = tk.Tk()
-    root.attributes('-fullscreen',False)
-    app = MainWindow(root)
+    app = Main(root)
     root.mainloop()
 if __name__ == '__main__':
     main()
