@@ -1,5 +1,4 @@
 from .indicators import *
-
 # Conventions
 #   Signals passed to the trading functions
 #       Buy: 1
@@ -9,7 +8,7 @@ from .indicators import *
 
 # Generates signals when the lines cross
 # If no cross occurs, will generate a hold signal
-def macd_signal(data, short_ema, long_ema, signal_period):
+def macd_signals(data, short_ema, long_ema, signal_period):
     # If the MACD is above the signal line, 1, else, 0
     positions = []
     # The MACD values calculated
@@ -51,7 +50,7 @@ def macd_signal(data, short_ema, long_ema, signal_period):
 # Data: Raw stock prices in CSV (Use OHLC average)
 # Time length: How long the indicator will search past data, by default 25
 #
-def aroon_signal(data, time_length=25, threshold_a = .7, threshold_b =0.2):
+def aroon_signals(data, time_length=25, threshold_a = .7, threshold_b =0.2):
     signals = []
     for x in range(time_length, len(data)):
         # Checks if aroon up is greater than aroon down
